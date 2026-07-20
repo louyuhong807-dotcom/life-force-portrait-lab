@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: "github-pages",
-  base: "/fantasy-life-force-portrait-photography/",
+  base: process.env.VITE_BASE_PATH ?? "/",
   publicDir: "public",
   plugins: [react()],
   build: {

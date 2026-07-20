@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Object URLs, canvas exports and generated data URLs cannot use next/image. */
+
 import {
   ChangeEvent,
   DragEvent,
@@ -10,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { imageStyles, type ImageStyleId } from "@/lib/life-force-prompt";
 
 type Adjustments = {
   exposure: number;
@@ -43,6 +46,12 @@ type Preset = {
   note: string;
   color: string;
   values: Adjustments;
+};
+
+type AiGenerateResponse = {
+  imageDataUrl?: string;
+  error?: string;
+  code?: string;
 };
 
 const neutral: Adjustments = {
@@ -404,6 +413,12 @@ export default function Home() {
   const [sharePreviewUrl, setSharePreviewUrl] = useState("");
   const [notice, setNotice] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
+  const [aiDescription, setAiDescription] = useState("夏日屋顶上，一位年轻中国女孩刚跑到镜头前，被风吹乱头发，抬手挡住刺眼阳光，身后蓝天和晾晒的彩色布料正在晃动");
+  const [aiStyle, setAiStyle] = useState<ImageStyleId>("sunlight");
+  const [aiQuality, setAiQuality] = useState<"low" | "medium">("low");
+  const [aiImageUrl, setAiImageUrl] = useState("");
+  const [aiNotice, setAiNotice] = useState("轻量模式约需 20–90 秒，仅生成原创人物，不会上传修图台里的照片。");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   const loadImage = useCallback((url: string, name: string, isDemo = false) => {
     const image = new Image();
@@ -620,6 +635,56 @@ export default function Home() {
     }
   };
 
+  const generateAiPortrait = async () => {
+    if (isAiGenerating) return;
+    if (aiDescription.trim().length < 4) {
+      setAiNotice("请先写下人物、动作和场景");
+      return;
+    }
+
+    setIsAiGenerating(true);
+    setAiNotice("AI 正在建立人物、光线与镜头关系，请不要关闭页面…");
+    try {
+      const endpoint = window.location.hostname === "louyuhong807-dotcom.github.io"
+        ? "https://life-force-portrait-lab.vercel.app/api/generate"
+        : "/api/generate";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiDescription, style: aiStyle, quality: aiQuality }),
+      });
+      const result = (await response.json().catch(() => ({}))) as AiGenerateResponse;
+      if (!response.ok || !result.imageDataUrl) {
+        throw new Error(result.error || (result.code === "not_configured" ? "AI 引擎待配置" : "生成没有完成"));
+      }
+      setAiImageUrl(result.imageDataUrl);
+      setAiNotice("原创样片已生成。可以保存，或送进上方修图台继续调整。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "生成没有完成";
+      setAiNotice(message.includes("fetch")
+        ? "AI 服务暂时连接不上，自动巡航已记录；稍后可直接重试。"
+        : `${message}。自动巡航不会让页面因此崩溃。`);
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const saveAiPortrait = () => {
+    if (!aiImageUrl) return;
+    const link = document.createElement("a");
+    link.href = aiImageUrl;
+    link.download = `AI-${imageStyles[aiStyle].label}-生命感.jpg`;
+    link.click();
+    setAiNotice("AI 原创样片已保存");
+  };
+
+  const sendAiPortraitToEditor = () => {
+    if (!aiImageUrl) return;
+    loadImage(aiImageUrl, `AI · ${imageStyles[aiStyle].label}.jpg`, true);
+    window.location.hash = "top";
+    setNotice("AI 原创样片已送入修图台，可继续微调");
+  };
+
   const recipe = useMemo(() => {
     const light = settings.exposure > 10 ? "提亮人物并打开暗部" : settings.contrast > 18 ? "强化光比与主体层次" : "保持自然光感";
     const color = settings.warmth > 10 ? "建立暖色记忆" : settings.warmth < -5 ? "建立清亮蓝调" : "保持自然暖肤色";
@@ -645,6 +710,7 @@ export default function Home() {
         </a>
         <div className="header-center">不换脸 · 不塑料 · 不堆滤镜</div>
         <div className="header-actions">
+          <a className="ai-top-link" href="#ai-studio">AI 生图 <span aria-hidden="true">✦</span></a>
           <button className="share-top-button" type="button" onClick={shareToWeChat}>微信分享 <span aria-hidden="true">↗</span></button>
           <a className="github-link" href="https://github.com/dacnay816y62-hub/fantasy-life-force-portrait-photography" target="_blank" rel="noreferrer">
             Fantasy Skill <span aria-hidden="true">↗</span>
@@ -792,6 +858,52 @@ export default function Home() {
         </aside>
       </section>
 
+      <section className="ai-studio" id="ai-studio" aria-labelledby="ai-studio-title">
+        <div className="ai-studio-copy">
+          <span>MODE B / AI 原创样片</span>
+          <h2 id="ai-studio-title">从一个真实瞬间，<br />生成一张生命感人像。</h2>
+          <p>只生成原创人物，不复刻明星或真人。人物先有动作与处境，再加入光线、综合色彩和一种克制的镜头异常。</p>
+          <div className="cruise-card">
+            <i>●</i>
+            <div><strong>AI 自动巡航已开启</strong><small>页面异常自动恢复；代码每日体检，安全修复后再提交审核。</small></div>
+          </div>
+        </div>
+
+        <div className="ai-generator">
+          <label className="ai-prompt-label" htmlFor="ai-description">
+            <span>描述人物、动作和场景</span><small>{aiDescription.length} / 600</small>
+          </label>
+          <textarea
+            id="ai-description"
+            value={aiDescription}
+            maxLength={600}
+            onChange={(event) => setAiDescription(event.target.value)}
+            placeholder="例如：雨后公交站，一位年轻男生刚收起透明伞，回头时被车灯照亮…"
+          />
+
+          <div className="ai-style-grid" aria-label="AI 生命感风格">
+            {(Object.entries(imageStyles) as Array<[ImageStyleId, (typeof imageStyles)[ImageStyleId]]>).map(([id, style]) => (
+              <button type="button" key={id} className={aiStyle === id ? "active" : ""} onClick={() => setAiStyle(id)}>
+                <strong>{style.label}</strong><small>{id === "sunlight" ? "硬光 · 鲜活" : id === "cinema" ? "侧光 · 景深" : id === "pool" ? "水光 · 蓝调" : "暖调 · 记忆"}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="ai-generate-bar">
+            <label><span>画质</span><select value={aiQuality} onChange={(event) => setAiQuality(event.target.value as "low" | "medium")}><option value="low">轻量预览</option><option value="medium">社交成片</option></select></label>
+            <button type="button" className="ai-generate-button" onClick={generateAiPortrait} disabled={isAiGenerating}>
+              {isAiGenerating ? "正在生成…" : "AI 生成生命感样片"}<b>✦</b>
+            </button>
+          </div>
+
+          <div className={`ai-result ${aiImageUrl ? "has-image" : ""}`} aria-live="polite">
+            {aiImageUrl ? <img src={aiImageUrl} alt={`AI 生成的${imageStyles[aiStyle].label}生命感人像`} /> : <div><span>生</span><strong>原创样片将在这里出现</strong><small>3:4 竖图 · 无文字 · 无水印</small></div>}
+          </div>
+          <p className="ai-notice" role="status">{aiNotice}</p>
+          {aiImageUrl && <div className="ai-result-actions"><button type="button" onClick={sendAiPortraitToEditor}>送入修图台</button><button type="button" onClick={saveAiPortrait}>保存原创样片</button></div>}
+        </div>
+      </section>
+
       <section className="principles">
         <div className="section-number">方法 / 04</div>
         <div className="principle-copy"><span>Skill 核心口令</span><h2>先有真实瞬间，<br />再有高级质感。</h2></div>
@@ -826,7 +938,7 @@ export default function Home() {
 
       <footer>
         <div className="brand footer-brand"><span className="brand-mark">生</span><span><strong>生命感实验室</strong><small>FANTASY LIFE FORCE</small></span></div>
-        <p>先做人，再做动作；先有阳光，再有柔光。</p>
+        <p>先做人，再做动作；先有阳光，再有柔光。<small className="footer-cruise">● AI 自动巡航守护中</small></p>
         <a href="#top">回到顶部 ↑</a>
       </footer>
 

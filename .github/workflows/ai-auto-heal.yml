@@ -1,0 +1,64 @@
+name: AI 自动修复
+
+on:
+  workflow_run:
+    workflows: ["AI 自动巡航"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  heal:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 先做确定性修复
+        run: pnpm run cruise:fix
+      - name: 收集失败报告
+        id: before
+        continue-on-error: true
+        run: pnpm run cruise
+      - name: AI 小范围修复
+        if: steps.before.outcome == 'failure'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/ai-heal.mjs .cruise/report.json
+      - name: 修复后复检
+        id: after
+        continue-on-error: true
+        run: pnpm run cruise
+      - name: 创建安全修复 PR
+        if: steps.after.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then exit 0; fi
+          branch="auto-heal/run-${GITHUB_RUN_ID}"
+          git config user.name "life-force-cruise[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add app api github-pages lib scripts tests worker package.json tsconfig.json eslint.config.mjs vite.config.ts vite.github.config.ts vercel.json
+          git commit -m "自动修复巡航发现的问题"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" --title "自动修复巡航发现的问题" --body "AI 自动巡航检测到失败，已完成小范围修复并通过全部复检。请审核后合并。"
+      - name: 无法自动修复时记录问题
+        if: steps.after.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "自动巡航发现未修复问题 #${GITHUB_RUN_ID}" --body "自动巡航未能在安全边界内修复本次问题。请查看工作流运行日志：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

@@ -1,0 +1,36 @@
+name: AI 自动巡航
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cruise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUBLIC_SITE_URL: https://louyuhong807-dotcom.github.io/life-force-portrait-lab/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run cruise
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cruise-report-${{ github.run_id }}
+          path: .cruise/report.json
+          if-no-files-found: ignore

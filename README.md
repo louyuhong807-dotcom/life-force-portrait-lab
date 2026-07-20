@@ -1,98 +1,66 @@
-# vinext-starter
+# 生命感人像修图神器
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+一个基于 Fantasy 生命感人像摄影 Skill 的开源手机人像工具。普通照片在浏览器本地完成光线、综合色彩、肤色保护与镜头质感调整；AI 原创样片通过可选的服务端 GPT Image 接口生成。
 
-## Prerequisites
+## 产品边界
 
-- Node.js `>=22.13.0`
+- 普通照片修图默认只在设备本地处理，不上传原图。
+- 保留人物身份、五官、表情、动作、服装与体型。
+- 皮肤保持柔润哑光与真实纹理，避免油光、塑料感和重滤镜。
+- AI 生图只生成原创人物，不复刻明星、真人或参考图。
+- API Key 只允许存放在服务端 Secret，不得写进网页、提交记录或公开仓库。
 
-## Quick Start
+## 已有功能
+
+- 上传、拖入与示例照片
+- 自动分析亮度和色彩，推荐生命感配方
+- 阳光生命力、电影侧光、泳池焦散、咖啡馆氛围、清透日常
+- 光线、色彩、肤色守护、镜头质感分层调整
+- 原图/成片拖动对比
+- 原尺寸高清导出与微信分享引导
+- GPT Image 2 原创生命感样片，可回送修图台
+- 页面运行时自动恢复
+- GitHub Actions 每日巡航、确定性修复、可选 AI 小范围修复
+
+## 本地运行
+
+需要 Node.js 22 与 pnpm。
 
 ```bash
-npm install
-npm run dev
-npm run build
+pnpm install
+pnpm dev
 ```
 
-This starter does not use `wrangler.jsonc`.
+本地启用 AI 生图时，新建 `.env.local`，只在本机填写：
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```text
+OPENAI_API_KEY=你的服务端密钥
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+不要提交 `.env.local`。
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## 自动巡航
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+```bash
+pnpm run cruise
+```
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+巡航会依次完成：
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+1. TypeScript 类型检查
+2. ESLint 代码检查
+3. 应用构建与回归测试
+4. 手机单页发布构建
+5. 发布包体积、关键文案、旧链接与移动端入口检查
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+GitHub 上的 `AI 自动巡航` 每天运行一次，也会在提交和 PR 时运行。确定性修复会先处理可安全自动修复的问题；如果仓库 Secret 中配置了 `OPENAI_API_KEY`，失败日志才会交给 `gpt-5.6-terra` 生成小范围、可审核的搜索替换补丁。任何 AI 修复都必须重新通过整套巡航，且只创建 PR，不直接改主分支。
 
-## Useful Commands
+## 部署
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+- GitHub Pages：执行 `pnpm run build:pages:single`，产物在 `dist-pages-single/`。
+- Sites：执行主构建并按 `.openai/hosting.json` 发布。
+- Vercel：`vercel.json` 会发布手机网页与 `/api/generate` 服务端接口；在项目环境变量中添加 `OPENAI_API_KEY` 后 AI 生图才会启用。
 
-## Learn More
+公开网页：[生命感人像修图神器](https://louyuhong807-dotcom.github.io/life-force-portrait-lab/)
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+原始摄影工作流：[Fantasy 生命感人像摄影 Skill](https://github.com/dacnay816y62-hub/fantasy-life-force-portrait-photography)
