@@ -35,7 +35,11 @@ if (publicUrl) {
       signal: AbortSignal.timeout(30_000),
     });
     if (![200, 206].includes(response.status)) throw new Error(`${name} 访问失败：HTTP ${response.status}`);
-    if (!(await response.text()).includes("小粥的修图神器")) throw new Error(`${name} 返回内容异常`);
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = await response.text();
+    if (!contentType.includes("text/html") || !/<(?:!doctype\s+html|html)[\s>]/i.test(body)) {
+      throw new Error(`${name} 返回的不是网页`);
+    }
   }
 }
 
