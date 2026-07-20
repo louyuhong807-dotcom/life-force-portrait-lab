@@ -33,6 +33,7 @@ test("server-renders the finished life-force editor", async () => {
 
   const html = await response.text();
   assert.match(html, /小粥的修图神器/);
+  assert.match(html, /并排查看原片与升级成片/);
   assert.match(html, /把普通照片/);
   assert.match(html, /生命感配方/);
   assert.match(html, /本地处理/);

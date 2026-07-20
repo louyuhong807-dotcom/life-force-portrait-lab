@@ -773,7 +773,7 @@ export default function Home() {
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="小粥的修图神器首页">
-          <span className="brand-mark">粥</span>
+          <span className="brand-photo" aria-hidden="true"><img src="xiaozhou-logo.jpg" alt="" /></span>
           <span>
             <strong>小粥的修图神器</strong>
             <small>XIAO ZHOU PHOTO LAB</small>
@@ -995,17 +995,20 @@ export default function Home() {
         <div className="showcase-heading">
           <span>MODE A / 普通照片升级</span>
           <h2>保留人物和事件，<br />提升摄影完成度。</h2>
-          <p>来自原 Skill 仓库的三组示例。拖动卡片上的分界线，查看光线、景深与综合色彩如何改变观看方式。</p>
+          <p>来自原 Skill 仓库的三组示例。并排查看原片与升级成片，比较光线、景深与综合色彩如何改变观看方式。</p>
         </div>
         <div className="example-grid">
           {examples.map((example, index) => (
             <figure className="example-card" key={example.name}>
-              <div className="example-images">
-                <img src={example.after} alt={`${example.name}升级后`} />
-                <img src={example.before} alt={`${example.name}原图`} className="example-before" />
-                <span className="example-divider" />
-                <small className="example-tag left">BEFORE</small>
-                <small className="example-tag right">AFTER</small>
+              <div className="example-pair">
+                <div className="example-shot">
+                  <img src={example.before} alt={`${example.name}原图`} />
+                  <small className="example-tag left">BEFORE</small>
+                </div>
+                <div className="example-shot">
+                  <img src={example.after} alt={`${example.name}升级后`} />
+                  <small className="example-tag right">AFTER</small>
+                </div>
               </div>
               <figcaption><span>0{index + 1}</span><strong>{example.name}</strong><small>保留身份 · 重做观看方式</small></figcaption>
             </figure>
@@ -1014,7 +1017,7 @@ export default function Home() {
       </section>
 
       <footer>
-        <div className="brand footer-brand"><span className="brand-mark">粥</span><span><strong>小粥的修图神器</strong><small>XIAO ZHOU PHOTO LAB</small></span></div>
+        <div className="brand footer-brand"><span className="brand-photo" aria-hidden="true"><img src="xiaozhou-logo.jpg" alt="" /></span><span><strong>小粥的修图神器</strong><small>XIAO ZHOU PHOTO LAB</small></span></div>
         <p>先做人，再做动作；先有阳光，再有柔光。<small className="footer-cruise">● AI 自动巡航守护中</small></p>
         <a href="#top">回到顶部 ↑</a>
       </footer>

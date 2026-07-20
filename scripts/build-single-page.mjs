@@ -20,6 +20,9 @@ for (const name of await readdir(demoDir)) {
   script = script.replaceAll(`demo/${name}`, `data:image/jpeg;base64,${image.toString("base64")}`);
 }
 
+const logo = await readFile(path.join(sourceDir, "xiaozhou-logo.jpg"));
+script = script.replaceAll("xiaozhou-logo.jpg", `data:image/jpeg;base64,${logo.toString("base64")}`);
+
 html = html
   .replace(
     /\s*<script type="module" crossorigin src="[^"]+"><\/script>/,
