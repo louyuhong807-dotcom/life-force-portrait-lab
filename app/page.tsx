@@ -54,6 +54,12 @@ type AiGenerateResponse = {
   code?: string;
 };
 
+type AiCleanupResponse = {
+  imageDataUrl?: string;
+  error?: string;
+  code?: string;
+};
+
 const neutral: Adjustments = {
   exposure: 0,
   contrast: 0,
@@ -400,6 +406,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const renderFrameRef = useRef<number | null>(null);
+  const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [settings, setSettings] = useState<Adjustments>(presets[0].values);
   const [activePreset, setActivePreset] = useState("alive");
   const [previewSize, setPreviewSize] = useState<PreviewSize>({ width: 1086, height: 1448, sourceWidth: 1086, sourceHeight: 1448 });
@@ -419,13 +426,20 @@ export default function Home() {
   const [aiImageUrl, setAiImageUrl] = useState("");
   const [aiNotice, setAiNotice] = useState("轻量模式约需 20–90 秒，仅生成原创人物，不会上传修图台里的照片。");
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isAiCleaning, setIsAiCleaning] = useState(false);
 
-  const loadImage = useCallback((url: string, name: string, isDemo = false) => {
+  const loadImage = useCallback((
+    url: string,
+    name: string,
+    isDemo = false,
+    preserve?: { settings: Adjustments; preset: string },
+  ) => {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => {
       imageRef.current = image;
-      const maxPreviewEdge = 1500;
+      const lightweightPreview = window.matchMedia("(max-width: 760px), (pointer: coarse)").matches;
+      const maxPreviewEdge = lightweightPreview ? 900 : 1500;
       const ratio = Math.min(1, maxPreviewEdge / Math.max(image.naturalWidth, image.naturalHeight));
       const width = Math.max(1, Math.round(image.naturalWidth * ratio));
       const height = Math.max(1, Math.round(image.naturalHeight * ratio));
@@ -442,10 +456,10 @@ export default function Home() {
       setCompare(48);
       const result = analyzeImage(source);
       setAnalysis(result);
-      const smart = isDemo ? presets[0].values : makeSmartSettings(result);
+      const smart = preserve?.settings ?? (isDemo ? presets[0].values : makeSmartSettings(result));
       setSettings(smart);
-      setActivePreset(isDemo ? "alive" : "smart");
-      setNotice(isDemo ? "" : "已按 Skill 完成初步判断，可继续微调");
+      setActivePreset(preserve?.preset ?? (isDemo ? "alive" : "smart"));
+      setNotice(preserve ? "背景杂物已清理，人物与当前调色保持不变" : isDemo ? "" : "已按 Skill 完成初步判断，可继续微调");
     };
     image.onerror = () => setNotice("这张图片暂时无法读取，请换一张试试");
     image.src = url;
@@ -464,16 +478,21 @@ export default function Home() {
 
   useEffect(() => {
     if (!sourceDataRef.current || !originalCanvasRef.current || !editedCanvasRef.current) return;
+    if (renderTimerRef.current) clearTimeout(renderTimerRef.current);
     if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
-    renderFrameRef.current = requestAnimationFrame(() => {
-      const source = sourceDataRef.current;
-      if (!source || !originalCanvasRef.current || !editedCanvasRef.current) return;
-      originalCanvasRef.current.width = source.width;
-      originalCanvasRef.current.height = source.height;
-      originalCanvasRef.current.getContext("2d", { alpha: false })?.putImageData(source, 0, 0);
-      drawProcessed(editedCanvasRef.current, source, settings);
-    });
+    const lightweightPreview = window.matchMedia("(max-width: 760px), (pointer: coarse)").matches;
+    renderTimerRef.current = setTimeout(() => {
+      renderFrameRef.current = requestAnimationFrame(() => {
+        const source = sourceDataRef.current;
+        if (!source || !originalCanvasRef.current || !editedCanvasRef.current) return;
+        originalCanvasRef.current.width = source.width;
+        originalCanvasRef.current.height = source.height;
+        originalCanvasRef.current.getContext("2d", { alpha: false })?.putImageData(source, 0, 0);
+        drawProcessed(editedCanvasRef.current, source, settings);
+      });
+    }, lightweightPreview ? 72 : 16);
     return () => {
+      if (renderTimerRef.current) clearTimeout(renderTimerRef.current);
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
     };
   }, [settings, previewSize]);
@@ -543,6 +562,58 @@ export default function Home() {
     return blob;
   };
 
+  const createAiInput = () => {
+    const image = imageRef.current;
+    if (!image) throw new Error("image");
+    const maxEdge = 1400;
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("canvas");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, 0, 0, width, height);
+    const ratio = width / height;
+    return {
+      imageDataUrl: canvas.toDataURL("image/jpeg", 0.82),
+      orientation: ratio > 1.1 ? "landscape" : ratio < 0.9 ? "portrait" : "square",
+    };
+  };
+
+  const cleanupBackground = async () => {
+    if (!imageRef.current || isAiCleaning) return;
+    setIsAiCleaning(true);
+    setNotice("AI 正在锁定人物并清理背景杂物，约需 20–90 秒…");
+    try {
+      const input = createAiInput();
+      const endpoint = window.location.hostname === "louyuhong807-dotcom.github.io"
+        ? "https://life-force-portrait-lab.vercel.app/api/cleanup"
+        : "/api/cleanup";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = (await response.json().catch(() => ({}))) as AiCleanupResponse;
+      if (!response.ok || !result.imageDataUrl) {
+        throw new Error(result.error || (result.code === "not_configured" ? "AI 清理引擎待配置" : "背景清理没有完成"));
+      }
+      const stem = fileName.replace(/\.[^/.]+$/, "") || "portrait";
+      loadImage(result.imageDataUrl, `${stem}-背景已清理.jpg`, false, { settings, preset: activePreset });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "背景清理没有完成";
+      setNotice(message.includes("fetch")
+        ? "AI 清理服务暂时连接不上，自动巡航已记录；稍后可直接重试。"
+        : `${message}。原图未被修改，可以直接重试。`);
+    } finally {
+      setIsAiCleaning(false);
+    }
+  };
+
   const exportImage = async () => {
     if (!imageRef.current) return;
     setIsExporting(true);
@@ -581,7 +652,7 @@ export default function Home() {
       const stem = fileName.replace(/\.[^/.]+$/, "") || "portrait";
       const file = new File([blob], `${stem}-生命感.jpg`, { type: "image/jpeg" });
       const fileShare: ShareData = {
-        title: "生命感实验室",
+        title: "小粥的修图神器",
         text: "把普通照片，重新看见。",
         files: [file],
       };
@@ -592,7 +663,7 @@ export default function Home() {
         setNotice("已打开分享面板，选择微信即可");
       } else if (typeof navigator.share === "function" && !/MicroMessenger/i.test(navigator.userAgent)) {
         await navigator.share({
-          title: "生命感实验室｜人像摄影修图神器",
+          title: "小粥的修图神器｜生命感人像修图",
           text: "把普通照片，重新看见。",
           url: window.location.href,
         });
@@ -701,11 +772,11 @@ export default function Home() {
   return (
     <main>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="生命感实验室首页">
-          <span className="brand-mark">生</span>
+        <a className="brand" href="#top" aria-label="小粥的修图神器首页">
+          <span className="brand-mark">粥</span>
           <span>
-            <strong>生命感实验室</strong>
-            <small>LIFE FORCE PORTRAIT</small>
+            <strong>小粥的修图神器</strong>
+            <small>XIAO ZHOU PHOTO LAB</small>
           </span>
         </a>
         <div className="header-center">不换脸 · 不塑料 · 不堆滤镜</div>
@@ -830,6 +901,7 @@ export default function Home() {
                   max={field.max}
                   value={settings[field.key]}
                   onChange={(event) => updateSetting(field.key, Number(event.target.value))}
+                  aria-label={field.label}
                   style={{ "--range-progress": `${((settings[field.key] - field.min) / (field.max - field.min)) * 100}%` } as React.CSSProperties}
                 />
               </label>
@@ -843,6 +915,11 @@ export default function Home() {
             <div className="guardrail-note"><span>镜</span><p><strong>一种主效果就够了</strong>色散只落在画面边缘，高光溢出不覆盖五官。</p></div>
           )}
 
+          <button type="button" className="ai-cleanup-button" onClick={cleanupBackground} disabled={isAiCleaning || isAiGenerating}>
+            <span><small>AI 一键</small><strong>{isAiCleaning ? "正在清理背景…" : "去除背景杂物"}</strong><em>锁定人物，只清理路人、垃圾、线缆与干扰物</em></span>
+            <b>{isAiCleaning ? "···" : "✦"}</b>
+          </button>
+
           <div className="export-area">
             <div className="export-buttons">
               <button type="button" className="share-button" onClick={shareToWeChat} disabled={isSharing || isExporting}>
@@ -852,7 +929,7 @@ export default function Home() {
                 <span>{isExporting ? "处理中" : "保存高清成片"}</span><b>{isExporting ? "···" : "↓"}</b>
               </button>
             </div>
-            <p><span>●</span> 全程本地处理，不上传你的照片</p>
+            <p><span>●</span> 普通调色全程本地处理；仅点击 AI 清背景时上传压缩副本</p>
             {notice && <div className="notice" role="status">{notice}</div>}
           </div>
         </aside>
@@ -937,13 +1014,14 @@ export default function Home() {
       </section>
 
       <footer>
-        <div className="brand footer-brand"><span className="brand-mark">生</span><span><strong>生命感实验室</strong><small>FANTASY LIFE FORCE</small></span></div>
+        <div className="brand footer-brand"><span className="brand-mark">粥</span><span><strong>小粥的修图神器</strong><small>XIAO ZHOU PHOTO LAB</small></span></div>
         <p>先做人，再做动作；先有阳光，再有柔光。<small className="footer-cruise">● AI 自动巡航守护中</small></p>
         <a href="#top">回到顶部 ↑</a>
       </footer>
 
       <div className="mobile-share-dock" aria-label="手机快捷操作">
         <button type="button" className="dock-save" onClick={exportImage} disabled={isExporting || isSharing}>保存</button>
+        <button type="button" className="dock-cleanup" onClick={cleanupBackground} disabled={isAiCleaning || isAiGenerating}>{isAiCleaning ? "清理中…" : "AI 清背景"}</button>
         <button type="button" className="dock-share" onClick={shareToWeChat} disabled={isSharing || isExporting}>{isSharing ? "正在准备…" : "微信分享成片"}<span>微</span></button>
       </div>
 

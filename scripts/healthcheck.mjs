@@ -13,7 +13,7 @@ const [html, pageStat, ogStat] = await Promise.all([
   stat(ogUrl),
 ]);
 
-const required = ["生命感实验室", "AI 原创样片", "自动巡航", "全程本地处理"];
+const required = ["小粥的修图神器", "AI 原创样片", "AI 一键", "自动巡航", "全程本地处理"];
 for (const marker of required) {
   if (!html.includes(marker)) throw new Error(`发布文件缺少关键内容：${marker}`);
 }
@@ -35,7 +35,7 @@ if (publicUrl) {
       signal: AbortSignal.timeout(30_000),
     });
     if (![200, 206].includes(response.status)) throw new Error(`${name} 访问失败：HTTP ${response.status}`);
-    if (!(await response.text()).includes("生命感实验室")) throw new Error(`${name} 返回内容异常`);
+    if (!(await response.text()).includes("小粥的修图神器")) throw new Error(`${name} 返回内容异常`);
   }
 }
 

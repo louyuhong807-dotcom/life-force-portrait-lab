@@ -32,12 +32,13 @@ test("server-renders the finished life-force editor", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /生命感实验室/);
+  assert.match(html, /小粥的修图神器/);
   assert.match(html, /把普通照片/);
   assert.match(html, /生命感配方/);
   assert.match(html, /本地处理/);
   assert.match(html, /分享成片到微信/);
   assert.match(html, /AI 原创样片/);
+  assert.match(html, /去除背景杂物/);
   assert.match(html, /AI 自动巡航/);
   assert.match(html, /https:\/\/life-force\.example\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Building your site/i);
@@ -60,6 +61,7 @@ test("ships local image processing and branded assets", async () => {
   assert.match(page, /MicroMessenger/);
   assert.match(page, /全程本地处理/);
   assert.match(page, /generateAiPortrait/);
+  assert.match(page, /cleanupBackground/);
   assert.match(page, /gpt-image-2|AI 生成生命感样片/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /summary_large_image/);
@@ -76,4 +78,14 @@ test("AI image route fails safely before a server secret is configured", async (
   });
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: "AI 生图服务尚未配置", code: "not_configured" });
+});
+
+test("AI cleanup route fails safely before a server secret is configured", async () => {
+  const response = await render("/api/cleanup", {
+    method: "POST",
+    headers: { "content-type": "application/json", host: "life-force.example" },
+    body: JSON.stringify({ imageDataUrl: "data:image/jpeg;base64,AA==", orientation: "portrait" }),
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "AI 清理服务尚未配置", code: "not_configured" });
 });
