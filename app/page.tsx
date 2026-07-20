@@ -437,7 +437,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadImage("/demo/rooftop-before.jpg", "示例 · 天台随拍.jpg", true);
+    loadImage("demo/rooftop-before.jpg", "示例 · 天台随拍.jpg", true);
     return () => {
       if (sourceUrlRef.current) URL.revokeObjectURL(sourceUrlRef.current);
     };
@@ -628,9 +628,9 @@ export default function Home() {
   }, [settings]);
 
   const examples = [
-    { name: "天台侧光", before: "/demo/rooftop-before.jpg", after: "/demo/rooftop-after.jpg" },
-    { name: "咖啡馆氛围", before: "/demo/cafe-before.jpg", after: "/demo/cafe-after.jpg" },
-    { name: "书店电影感", before: "/demo/bookstore-before.jpg", after: "/demo/bookstore-after.jpg" },
+    { name: "天台侧光", before: "demo/rooftop-before.jpg", after: "demo/rooftop-after.jpg" },
+    { name: "咖啡馆氛围", before: "demo/cafe-before.jpg", after: "demo/cafe-after.jpg" },
+    { name: "书店电影感", before: "demo/bookstore-before.jpg", after: "demo/bookstore-after.jpg" },
   ];
 
   return (
@@ -674,7 +674,7 @@ export default function Home() {
               </div>
             </div>
             <div className="toolbar-actions">
-              <button className="text-button" type="button" onClick={() => loadImage("/demo/rooftop-before.jpg", "示例 · 天台随拍.jpg", true)}>示例图</button>
+              <button className="text-button" type="button" onClick={() => loadImage("demo/rooftop-before.jpg", "示例 · 天台随拍.jpg", true)}>示例图</button>
               <button className="upload-button" type="button" onClick={() => fileInputRef.current?.click()}><span>＋</span> 换一张照片</button>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFileChange} hidden />
             </div>
