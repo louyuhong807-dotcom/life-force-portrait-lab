@@ -49,8 +49,11 @@ main { min-height: 100vh; overflow: hidden; }
 .brand strong { font-size: 15px; letter-spacing: .08em; }
 .brand small { font-size: 8px; letter-spacing: .17em; color: var(--muted); }
 .header-center { font-size: 11px; letter-spacing: .23em; color: var(--muted); }
-.github-link { justify-self: end; font-size: 12px; font-weight: 700; padding-bottom: 4px; border-bottom: 1px solid var(--ink); }
+.header-actions { justify-self: end; display: flex; align-items: center; gap: 18px; }
+.github-link { font-size: 12px; font-weight: 700; padding-bottom: 4px; border-bottom: 1px solid var(--ink); }
 .github-link span { color: var(--orange); margin-left: 4px; }
+.share-top-button { border: 0; background: #07c160; color: white; border-radius: 999px; padding: 9px 14px; font-size: 10px; font-weight: 800; cursor: pointer; }
+.share-top-button span { margin-left: 3px; }
 
 .intro {
   max-width: 1480px;
@@ -162,13 +165,38 @@ main { min-height: 100vh; overflow: hidden; }
 .guardrail-note p { margin: 0; font-size: 9px; color: var(--muted); line-height: 1.55; }
 .guardrail-note strong { color: var(--ink); display: block; margin-bottom: 2px; font-size: 10px; }
 .export-area { margin-top: auto; padding-top: 22px; }
-.export-button { width: 100%; height: 52px; background: var(--orange); color: white; border: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; cursor: pointer; font-weight: 800; font-size: 12px; box-shadow: 5px 5px 0 #191916; }
+.export-buttons { display: grid; grid-template-columns: 1.12fr .88fr; gap: 9px; }
+.share-button, .export-button { min-width: 0; height: 52px; color: white; border: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; cursor: pointer; font-weight: 800; font-size: 11px; }
+.share-button { background: #07c160; box-shadow: 5px 5px 0 #191916; }
+.share-button:hover { background: #06ad56; }
+.share-button b, .export-button b { width: 27px; height: 27px; border-radius: 50%; background: white; display: grid; place-items: center; font-size: 13px; flex: none; margin-left: 7px; }
+.share-button b { color: #07c160; font-family: "Songti SC", serif; }
+.export-button { background: var(--orange); }
 .export-button:hover { background: #ee4e2a; }
-.export-button:disabled { opacity: .7; cursor: progress; }
-.export-button b { width: 27px; height: 27px; border-radius: 50%; background: white; color: var(--orange); display: grid; place-items: center; font-size: 15px; }
+.export-button:disabled, .share-button:disabled { opacity: .7; cursor: progress; }
+.export-button b { color: var(--orange); font-size: 15px; }
 .export-area > p { text-align: center; margin: 13px 0 0; color: var(--muted); font-size: 8px; }
 .export-area > p span { color: #84ad47; margin-right: 4px; }
 .notice { margin-top: 10px; padding: 8px 10px; background: #efe9dd; font-size: 9px; text-align: center; color: #695f50; }
+
+.mobile-share-dock { display: none; }
+.share-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(14,14,12,.68); display: flex; align-items: flex-end; justify-content: center; padding: 18px; backdrop-filter: blur(8px); }
+.share-sheet { width: min(480px, 100%); max-height: min(88vh, 760px); overflow-y: auto; position: relative; background: var(--cream); border-radius: 20px 20px 8px 8px; padding: 27px; color: var(--ink); box-shadow: 0 28px 80px rgba(0,0,0,.35); }
+.share-close { position: absolute; right: 17px; top: 15px; border: 0; background: #e8e3d9; width: 32px; height: 32px; border-radius: 50%; font-size: 22px; cursor: pointer; }
+.wechat-badge { width: 44px; height: 44px; border-radius: 50%; background: #07c160; color: white; display: grid; place-items: center; font-family: "Songti SC", serif; font-size: 20px; font-weight: 800; margin-bottom: 12px; }
+.share-eyebrow { color: #07a950; font-size: 8px; font-weight: 900; letter-spacing: .18em; }
+.share-sheet h2 { margin: 7px 0 17px; font-family: "Songti SC", STSong, serif; font-size: 30px; line-height: 1.18; }
+.share-preview { width: 100%; max-height: 310px; object-fit: contain; background: #191916; border-radius: 4px; }
+.share-steps { list-style: none; padding: 8px 0 0; margin: 0; }
+.share-steps li { display: grid; grid-template-columns: 29px 1fr; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.share-steps li > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; background: #dff2e5; color: #078f46; font-size: 11px; font-weight: 900; }
+.share-steps p { margin: 0; font-size: 10px; line-height: 1.55; color: var(--muted); }
+.share-steps strong { display: block; color: var(--ink); font-size: 11px; }
+.share-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 17px; }
+.share-sheet-actions a, .share-sheet-actions button { height: 44px; display: grid; place-items: center; border-radius: 3px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.share-sheet-actions a { color: white; background: #07c160; }
+.share-sheet-actions button { border: 1px solid var(--ink); background: transparent; }
+.share-privacy { text-align: center; color: #88857e; font-size: 8px; margin: 13px 0 0; }
 
 .principles { max-width: 1388px; margin: 0 auto; padding: 92px clamp(24px, 4vw, 58px); border-top: 1px solid var(--line); display: grid; grid-template-columns: 90px .8fr 1.2fr; gap: 40px; }
 .section-number { writing-mode: vertical-rl; font-size: 9px; letter-spacing: .18em; color: var(--muted); }
@@ -217,7 +245,9 @@ footer > a { justify-self: end; font-size: 10px; font-weight: 700; border-bottom
 @media (max-width: 760px) {
   .site-header { height: 64px; grid-template-columns: 1fr auto; }
   .header-center { display: none; }
-  .github-link { font-size: 9px; }
+  .header-actions { gap: 0; }
+  .github-link { display: none; }
+  .share-top-button { padding: 9px 13px; font-size: 9px; }
   .brand-mark { width: 36px; height: 36px; font-size: 18px; }
   .brand strong { font-size: 12px; }
   .brand small { font-size: 6px; }
@@ -236,6 +266,8 @@ footer > a { justify-self: end; font-size: 10px; font-weight: 700; border-bottom
   .control-panel { border-inline: 0; padding: 24px 18px; }
   .control-heading h2 { font-size: 24px; }
   .preset-grid { grid-template-columns: 1fr 1fr; }
+  .export-buttons { grid-template-columns: 1fr; }
+  .share-button, .export-button { height: 50px; }
   .principles { padding-block: 64px; grid-template-columns: 1fr; gap: 28px; }
   .section-number { writing-mode: initial; }
   .showcase-heading { grid-template-columns: 1fr; gap: 18px; }
@@ -243,6 +275,17 @@ footer > a { justify-self: end; font-size: 10px; font-weight: 700; border-bottom
   .example-grid { grid-template-columns: 1fr; }
   footer { grid-template-columns: 1fr; gap: 28px; text-align: left; }
   footer > p, footer > a { justify-self: start; }
+  main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .mobile-share-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: 86px 1fr; gap: 9px; padding: 10px 13px calc(10px + env(safe-area-inset-bottom)); background: rgba(250,248,242,.94); border-top: 1px solid var(--line); backdrop-filter: blur(18px); }
+  .mobile-share-dock button { height: 48px; border-radius: 5px; font-size: 11px; font-weight: 900; cursor: pointer; }
+  .dock-save { border: 1px solid var(--ink); background: var(--cream); }
+  .dock-share { border: 0; background: #07c160; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .dock-share span { width: 25px; height: 25px; border-radius: 50%; background: white; color: #07c160; display: grid; place-items: center; font-family: "Songti SC", serif; }
+  .mobile-share-dock button:disabled { opacity: .65; }
+  .share-overlay { padding: 0; }
+  .share-sheet { width: 100%; border-radius: 20px 20px 0 0; padding: 23px 20px calc(20px + env(safe-area-inset-bottom)); }
+  .share-sheet h2 { font-size: 27px; }
+  .share-preview { max-height: 34vh; }
 }
 
 @media (max-width: 420px) {

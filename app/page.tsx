@@ -399,6 +399,9 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePreviewUrl, setSharePreviewUrl] = useState("");
   const [notice, setNotice] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
 
@@ -439,6 +442,10 @@ export default function Home() {
       if (sourceUrlRef.current) URL.revokeObjectURL(sourceUrlRef.current);
     };
   }, [loadImage]);
+
+  useEffect(() => () => {
+    if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl);
+  }, [sharePreviewUrl]);
 
   useEffect(() => {
     if (!sourceDataRef.current || !originalCanvasRef.current || !editedCanvasRef.current) return;
@@ -500,23 +507,34 @@ export default function Home() {
     setCompare(clamp(((event.clientX - rect.left) / rect.width) * 100, 2, 98));
   };
 
-  const exportImage = async () => {
+  const createProcessedBlob = async (maxEdge?: number, quality = 0.94) => {
     const image = imageRef.current;
-    if (!image) return;
+    if (!image) throw new Error("image");
+    const scale = maxEdge ? Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight)) : 1;
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    if (!context) throw new Error("canvas");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, 0, 0, width, height);
+    const source = context.getImageData(0, 0, width, height);
+    drawProcessed(canvas, source, settings);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (!blob) throw new Error("blob");
+    return blob;
+  };
+
+  const exportImage = async () => {
+    if (!imageRef.current) return;
     setIsExporting(true);
     setNotice("正在生成高清图片…");
     await new Promise((resolve) => setTimeout(resolve, 20));
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
-      if (!context) throw new Error("canvas");
-      context.drawImage(image, 0, 0);
-      const source = context.getImageData(0, 0, canvas.width, canvas.height);
-      drawProcessed(canvas, source, settings);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.94));
-      if (!blob) throw new Error("blob");
+      const blob = await createProcessedBlob();
       const href = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const stem = fileName.replace(/\.[^/.]+$/, "") || "portrait";
@@ -529,6 +547,76 @@ export default function Home() {
       setNotice("导出失败，请换一张尺寸更小的图片重试");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const openShareGuide = (blob: Blob) => {
+    if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl);
+    setSharePreviewUrl(URL.createObjectURL(blob));
+    setShareOpen(true);
+  };
+
+  const shareToWeChat = async () => {
+    if (!imageRef.current || isSharing) return;
+    setIsSharing(true);
+    setNotice("正在准备微信分享图…");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    try {
+      const blob = await createProcessedBlob(2160, 0.9);
+      const stem = fileName.replace(/\.[^/.]+$/, "") || "portrait";
+      const file = new File([blob], `${stem}-生命感.jpg`, { type: "image/jpeg" });
+      const fileShare: ShareData = {
+        title: "生命感实验室",
+        text: "把普通照片，重新看见。",
+        files: [file],
+      };
+      const canShareFile = typeof navigator.canShare === "function" && navigator.canShare(fileShare);
+
+      if (typeof navigator.share === "function" && canShareFile) {
+        await navigator.share(fileShare);
+        setNotice("已打开分享面板，选择微信即可");
+      } else if (typeof navigator.share === "function" && !/MicroMessenger/i.test(navigator.userAgent)) {
+        await navigator.share({
+          title: "生命感实验室｜人像摄影修图神器",
+          text: "把普通照片，重新看见。",
+          url: window.location.href,
+        });
+        setNotice("已打开分享面板，选择微信即可");
+      } else {
+        openShareGuide(blob);
+        setNotice("请按提示保存成片并分享到微信");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setNotice("已取消分享");
+      } else {
+        try {
+          const blob = await createProcessedBlob(2160, 0.88);
+          openShareGuide(blob);
+          setNotice("请按提示保存成片并分享到微信");
+        } catch {
+          setNotice("分享图生成失败，请先保存高清成片");
+        }
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setNotice("分享链接已复制");
+    } catch {
+      setNotice("请从浏览器地址栏复制链接");
+    }
+  };
+
+  const closeShareGuide = () => {
+    setShareOpen(false);
+    if (sharePreviewUrl) {
+      URL.revokeObjectURL(sharePreviewUrl);
+      setSharePreviewUrl("");
     }
   };
 
@@ -556,9 +644,12 @@ export default function Home() {
           </span>
         </a>
         <div className="header-center">不换脸 · 不塑料 · 不堆滤镜</div>
-        <a className="github-link" href="https://github.com/dacnay816y62-hub/fantasy-life-force-portrait-photography" target="_blank" rel="noreferrer">
-          Fantasy Skill <span aria-hidden="true">↗</span>
-        </a>
+        <div className="header-actions">
+          <button className="share-top-button" type="button" onClick={shareToWeChat}>微信分享 <span aria-hidden="true">↗</span></button>
+          <a className="github-link" href="https://github.com/dacnay816y62-hub/fantasy-life-force-portrait-photography" target="_blank" rel="noreferrer">
+            Fantasy Skill <span aria-hidden="true">↗</span>
+          </a>
+        </div>
       </header>
 
       <section className="intro" id="top">
@@ -687,9 +778,14 @@ export default function Home() {
           )}
 
           <div className="export-area">
-            <button type="button" className="export-button" onClick={exportImage} disabled={isExporting}>
-              <span>{isExporting ? "处理中" : "导出高清成片"}</span><b>{isExporting ? "···" : "↓"}</b>
-            </button>
+            <div className="export-buttons">
+              <button type="button" className="share-button" onClick={shareToWeChat} disabled={isSharing || isExporting}>
+                <span>{isSharing ? "准备分享图…" : "分享成片到微信"}</span><b>{isSharing ? "···" : "微"}</b>
+              </button>
+              <button type="button" className="export-button" onClick={exportImage} disabled={isExporting || isSharing}>
+                <span>{isExporting ? "处理中" : "保存高清成片"}</span><b>{isExporting ? "···" : "↓"}</b>
+              </button>
+            </div>
             <p><span>●</span> 全程本地处理，不上传你的照片</p>
             {notice && <div className="notice" role="status">{notice}</div>}
           </div>
@@ -733,6 +829,34 @@ export default function Home() {
         <p>先做人，再做动作；先有阳光，再有柔光。</p>
         <a href="#top">回到顶部 ↑</a>
       </footer>
+
+      <div className="mobile-share-dock" aria-label="手机快捷操作">
+        <button type="button" className="dock-save" onClick={exportImage} disabled={isExporting || isSharing}>保存</button>
+        <button type="button" className="dock-share" onClick={shareToWeChat} disabled={isSharing || isExporting}>{isSharing ? "正在准备…" : "微信分享成片"}<span>微</span></button>
+      </div>
+
+      {shareOpen && (
+        <div className="share-overlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) closeShareGuide();
+        }}>
+          <section className="share-sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
+            <button className="share-close" type="button" onClick={closeShareGuide} aria-label="关闭分享引导">×</button>
+            <div className="wechat-badge">微</div>
+            <span className="share-eyebrow">WECHAT SHARE</span>
+            <h2 id="share-title">把这张生命感成片<br />分享到微信</h2>
+            {sharePreviewUrl && <img className="share-preview" src={sharePreviewUrl} alt="待分享的生命感成片" />}
+            <ol className="share-steps">
+              <li><span>1</span><p><strong>长按上方成片</strong>选择“保存图片”到手机相册</p></li>
+              <li><span>2</span><p><strong>打开微信</strong>发送给朋友，或发布到朋友圈</p></li>
+            </ol>
+            <div className="share-sheet-actions">
+              {sharePreviewUrl && <a href={sharePreviewUrl} download={`${fileName.replace(/\.[^/.]+$/, "") || "portrait"}-生命感.jpg`}>保存图片</a>}
+              <button type="button" onClick={copyShareLink}>复制作品链接</button>
+            </div>
+            <p className="share-privacy">照片只在你的手机浏览器里处理，分享前不会上传。</p>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

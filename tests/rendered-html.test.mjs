@@ -35,6 +35,7 @@ test("server-renders the finished life-force editor", async () => {
   assert.match(html, /把普通照片/);
   assert.match(html, /生命感配方/);
   assert.match(html, /本地处理/);
+  assert.match(html, /分享成片到微信/);
   assert.match(html, /https:\/\/life-force\.example\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Building your site/i);
 });
@@ -51,6 +52,9 @@ test("ships local image processing and branded assets", async () => {
   assert.match(page, /function processPixels/);
   assert.match(page, /skinGuard/);
   assert.match(page, /canvas\.toBlob/);
+  assert.match(page, /navigator\.share/);
+  assert.match(page, /navigator\.canShare/);
+  assert.match(page, /MicroMessenger/);
   assert.match(page, /全程本地处理/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /summary_large_image/);
